@@ -1,0 +1,40 @@
+```yml
+kind: Pod                                      # For testing purposes. Don't run only a pod object in production
+apiVersion: v1
+metadata:
+  name: tiacloud-app-1
+  labels:
+    app: tiacloud-app-1
+spec:
+  containers:
+  - name: tiacloud-app-1
+    image: ttw:0.1.0           
+    args:
+    - "-text=Hello World! This is a daba Kubernetes with kind App"
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: tiacloud-service-1
+spec:
+  selector:
+    app: tiacloud-app-1
+  ports:
+  - port: 5678
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: daba-ingress
+spec:
+  rules:
+  - http:
+      paths:
+      - pathType: Prefix
+        path: "/ttw"
+        backend:
+          service:
+            name: tiacloud-service-1
+            port:
+              number: 5678
+---

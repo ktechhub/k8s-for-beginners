@@ -5,23 +5,42 @@ Docker
 Kubectl
 ```
 
-1. Linux
+## 1a. Installing with a Package Manager
 ```sh
-curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.11.1/kind-linux-amd64
-chmod +x ./kind
-mv ./kind /some-dir-in-your-PATH/kind   # mv ./kind /usr/bin #ubuntu move /usr/local/bin
+# On MacOS via Homebrew
+brew install kind
+
+# On MacOS via MacPorts
+sudo port selfupdate && sudo port install kind
+
+# On Windows via Chocolatey
+choco install kind
 ```
 
-2. macOS
+## 1b. Installing From Release Binaries 🔗︎
+1. On Linux
 ```sh
-curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.11.1/kind-darwin-amd64
+# For AMD64 / x86_64
+[ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.23.0/kind-linux-amd64
+# For ARM64
+[ $(uname -m) = aarch64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.23.0/kind-linux-arm64
+chmod +x ./kind
+sudo mv ./kind /usr/local/bin/kind
+```
+
+2. On macOS
+```sh
+# For Intel Macs
+[ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.23.0/kind-darwin-amd64
+# For M1 / ARM Macs
+[ $(uname -m) = arm64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.23.0/kind-darwin-arm64
 chmod +x ./kind
 mv ./kind /some-dir-in-your-PATH/kind
 ```
 
-3. PowerShell
+3. On Windows in PowerShell
 ```sh
-curl.exe -Lo kind-windows-amd64.exe https://kind.sigs.k8s.io/dl/v0.11.1/kind-windows-amd64
+curl.exe -Lo kind-windows-amd64.exe https://kind.sigs.k8s.io/dl/v0.23.0/kind-windows-amd64
 Move-Item .\kind-windows-amd64.exe c:\some-dir-in-your-PATH\kind.exe
 ```
 
@@ -42,7 +61,7 @@ You can create a single-node cluster or a multi-node cluster
 ```sh
 kind create cluster --name <cluster-name>       # defaults to "kind" if name is not provided
 
-kind create cluster --name tiacloud             # we'll be using tiacloud for this setup
+kind create cluster --name storm             # we'll be using storm for this setup
 ```
 
 ## 3b. For a multi-node cluster, use a config file to add extra nodes
@@ -52,7 +71,7 @@ kind create cluster --name tiacloud             # we'll be using tiacloud for th
 # To add more worker nodes, add another role: worker to the list
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
-name: tiacloud
+name: storm
 nodes:
 - role: control-plane
   kubeadmConfigPatches:
@@ -69,7 +88,6 @@ nodes:
     hostPort: 443
     protocol: TCP
 - role: worker
-- role: worker
 ```
 ```sh
 # Then run the cluster config file
@@ -80,7 +98,7 @@ kind create cluster --config <cluster-config-yaml>
 
 ```sh
 # Automatically the context will be set. However, you can still set it yourself with:
-kind export kubeconfig --name tiacloud
+kind export kubeconfig --name storm
 kubectl config view                       # To view the context
 ```
 
@@ -95,41 +113,25 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main
 kind: Pod                                      # For testing purposes. Don't run only a pod object in production
 apiVersion: v1
 metadata:
-  name: tiacloud-app
+  name: storm-app
   labels:
-    app: tiacloud-app
+    app: storm-app
 spec:
   containers:
-  - name: tiacloud-app
+  - name: storm-app
     image: hashicorp/http-echo:0.2.3           # We'll later replace this image with a built image
     args:
-    - "-text=Hello World! This is a daba Kubernetes with kind App"
+    - "-text=Hello World! This is a storm Kubernetes with kind App"
 ---
 kind: Service
 apiVersion: v1
 metadata:
-  name: daba-service
+  name: storm-service
 spec:
   selector:
-    app: tiacloud-app
+    app: storm-app
   ports:
   - port: 5678
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: daba-ingress
-spec:
-  rules:
-  - http:
-      paths:
-      - pathType: Prefix
-        path: "/tiacloud"
-        backend:
-          service:
-            name: daba-service
-            port:
-              number: 5678
 ---
 ```
 ```sh
@@ -143,12 +145,15 @@ kubectl get services
 kubectl get pods
 ```
 
-- Navigate to the browser and check `localhost/tiacloud` to see the app running
+- Navigate to the browser and check `localhost/storm` to see the app running
+```sh
+kubectl port-forward po/
+```
 
 # 6. Build Your own Local Image
 ```sh
-docker build -t ttw:0.1.0 .
-kind load docker-image ttw:0.1.0 --name tiacloud
+docker build -t storm-image:0.0.1 .
+kind load docker-image storm-image:0.0.1 --name storm
 docker exec -it my-node-name crictl images                         # Check all images in controller node
 
 # Use the local image in your manifest yaml and deploy
@@ -160,10 +165,13 @@ kubectl apply -f sample-app/local_image_app.yml
 # Go to localhost on localhost/ttw, OR
 
 # Port-forward pod to localhost
-kubectl port-forward pods/tiacloud-app-2 :3000                    # Make sure port in Dockerfile matches the targetPort
+kubectl port-forward pods/storm-app-2 :3000                    # Make sure port in Dockerfile matches the targetPort
 ```
 
-# 7. Metallb Setup
+# ADVANCED!!!
+# 7a. Load Balancing using Kind Cloud Provider Utility
+
+# 7. Metallb Setup (Deprecated)
 - To use a LoadBalancer you will have to use Metallb controller. You can extend this with a domain name as we will demostrate
 
 ```sh
@@ -194,7 +202,7 @@ data:
     - name: default
       protocol: layer2
       addresses:
-      - 172.19.255.200-172.19.255.250
+      - 172.18.255.200-172.18.255.250
 ```
 ```sh
 # Deploy the address-pool range for the loadbalancer
@@ -206,17 +214,17 @@ kubectl apply -f metallb/lb-address-pool.yml -n metallb-system
 kind: Service
 apiVersion: v1
 metadata:
-  name: tiacloud-service-1
+  name: storm-service-1
 spec:
   type: LoadBalancer
   selector:
-    app: tiacloud-app-1
+    app: storm-app-1
   ports:
   - port: 5678
 ```
 ```sh
 # Fetch the IP of the service
-LB_IP=$(kubectl get svc/tiacloud-service -o=jsonpath='{.status.loadBalancer.ingress[0].ip}')
+LB_IP=$(kubectl get svc/storm-service-1 -o=jsonpath='{.status.loadBalancer.ingress[0].ip}')
 echo $LB_IP
 
 # Curl the LoadBalancer headers
@@ -237,8 +245,8 @@ http://example.link.com
 # 9. Clean Up
 ```sh
 kind get clusters                                 # Get you clusters (choose which to delete
-kind cluster-info --context tiacloud              # get cluster info with the a context
-kind delete cluster --name tiacloud               # Default delete is kind
+kind cluster-info --context storm              # get cluster info with the a context
+kind delete cluster --name storm               # Default delete is kind
 ```
 
 # 10. Troubleshooting

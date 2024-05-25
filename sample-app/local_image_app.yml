@@ -1,0 +1,38 @@
+---
+kind: Pod                                      # For testing purposes. Don't run only a pod object in production
+apiVersion: v1
+metadata:
+  name: storm-app-1
+  labels:
+    app: storm-app-1
+spec:
+  containers:
+  - name: storm-app-1
+    image: storm-image:0.0.3         
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: storm-service-1
+spec:
+  selector:
+    app: storm-app-1
+  ports:
+  - port: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: storm-ingress
+spec:
+  rules:
+  - http:
+      paths:
+      - pathType: Prefix
+        path: "/storm"
+        backend:
+          service:
+            name: storm-service-1
+            port:
+              number: 80
+---

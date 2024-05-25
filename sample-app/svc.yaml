@@ -1,0 +1,10 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: storm-service-1
+spec:
+  type: LoadBalancer
+  selector:
+    app: storm-app-1
+  ports:
+  - port: 80
